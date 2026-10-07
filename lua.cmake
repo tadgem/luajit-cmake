@@ -169,11 +169,6 @@ if(LUA_BUILD_EXE)
   endif()
   TARGET_LINK_LIBRARIES(lua ${LIBS})
 
-  if(APPLE AND ${CMAKE_C_COMPILER_ID} STREQUAL "zig")
-    target_link_libraries(lua c pthread)
-    set_target_properties(lua PROPERTIES
-      LINK_FLAGS "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  endif()
   INSTALL(TARGETS lua DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
 

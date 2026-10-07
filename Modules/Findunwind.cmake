@@ -82,18 +82,3 @@ function(check_unwind_tables output_var)
   file(REMOVE_RECURSE "${TEST_DIR}")
 endfunction()
 
-if (HAVE_UNWIND_LIB AND HAVE_UNWIND_H)
-  set(unwind_FOUND ON)
-elseif(HAVE_UNWIND_H)
-  message(STATUS "Checking for architecture specific unwind library...")
-  message(STATUS "  System processor: ${CMAKE_SYSTEM_PROCESSOR}")
-  message(STATUS "  C Compiler ID: ${CMAKE_C_COMPILER_ID}")
-  if (CMAKE_C_COMPILER_ID STREQUAL zig
-      AND NOT ANDROID
-      AND NOT IOS)
-    message(STATUS "  Using zig compiler, setting unwind library to 'unwind'")
-    set(UNWIND_LIBRARY "unwind")
-    set(HAVE_UNWIND_LIB ON)
-    set(unwind_FOUND ON)
-  endif()
-endif()

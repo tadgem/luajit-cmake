@@ -1,13 +1,5 @@
 set(CMAKE_SYSTEM_NAME Windows)
 
-# zig cc enables UBSan checks by default. LuaJIT's DynASM (dasm_setup)
-# intentionally performs null-pointer arithmetic (buf - pos), which triggers
-# a Zig runtime panic ("applying non-zero offset to null pointer") when the
-# cross-built buildvm.exe is run under Wine. Disable it here, consistently
-# with zig.toolchain.cmake.
-set(CMAKE_C_FLAGS_INIT "-fno-sanitize=undefined -fno-sanitize-trap=undefined")
-set(CMAKE_CXX_FLAGS_INIT "-fno-sanitize=undefined -fno-sanitize-trap=undefined")
-
 IF(NOT DEFINED USE_64BITS)
   IF(DEFINED ENV{USE_64BITS})
     SET(USE_64BITS $ENV{USE_64BITS})
@@ -23,26 +15,31 @@ IF(NOT DEFINED USE_64BITS)
 endif()
 
 IF(USE_64BITS)
-  SET(TARGETS x86_64-windows-gnu)
+  SET(CROSSCOMPILER x86_64-w64-mingw32-)
 ELSE()
-  SET(TARGETS x86-windows-gnu)
+  SET(CROSSCOMPILER i686-w64-mingw32-)
 ENDIF()
-if(DEFINED ENV{ZIG_TOOLCHAIN_PATH})
-  set(ZIG_TOOLCHAIN_PATH $ENV{ZIG_TOOLCHAIN_PATH})
-endif()
-if(NOT ZIG_TOOLCHAIN_PATH)
-  find_program(ZIG_TOOLCHAIN_PATH NAMES zig REQUIRED)
-endif()
-set(CROSSCOMPILER ${ZIG_TOOLCHAIN_PATH})
 
-set(CMAKE_C_COMPILER_FORCED 1)
-set(CMAKE_C_COMPILER_ID_RUN TRUE)
-set(CMAKE_C_COMPILER ${CROSSCOMPILER} cc --target=${TARGETS})
+if($ENV{CROSSCOMPILER})
+  set(CROSSCOMPILER $ENV{CROSSCOMPILER})
+endif()
 
-set(CMAKE_CXX_COMPILER_FORCED 1)
-set(CMAKE_CXX_COMPILER_ID_RUN TRUE)
-set(CMAKE_CXX_COMPILER ${CROSSCOMPILER} c++ --target=${TARGETS})
-set(CMAKE_RC_COMPILER ${CROSSCOMPILER} rc --target=${TARGETS})
+set(CMAKE_C_COMPILER ${CROSSCOMPILER}gcc)
+set(CMAKE_CXX_COMPILER ${CROSSCOMPILER}g++)
+set(CMAKE_STRIP ${CROSSCOMPILER}strip)
+set(CMAKE_RC_COMPILER ${CROSSCOMPILER}windres)
+
+if($ENV{CMAKE_FIND_ROOT_PATH})
+  set(CMAKE_FIND_ROOT_PATH $ENV{CMAKE_FIND_ROOT_PATH})
+else()
+  execute_process(COMMAND ${CMAKE_C_COMPILER} --print-sysroot
+                  OUTPUT_VARIABLE SYSROOT
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if($ENV{SYSROOT})
+    set(SYSROOT $ENV{SYSROOT})
+  endif()
+  set(CMAKE_FIND_ROOT_PATH ${SYSROOT})
+endif()
 
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

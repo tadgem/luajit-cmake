@@ -4,16 +4,30 @@
 
 Un generador de cmake flexible para LuaJIT.
 
+## Obtención del código fuente
+
+LuaJIT se incluye como submódulo de git en `LuaJIT/`. Clone de forma
+recursiva o inicialice el submódulo en una copia existente:
+
+```bash
+git clone --recursive https://github.com/tadgem/luajit-cmake.git
+# o, en una copia existente:
+git submodule update --init --recursive
+```
+
+`LUAJIT_DIR` toma por defecto el directorio incluido `LuaJIT/`, por lo que no
+es necesario definirlo. Use `-DLUAJIT_DIR=...` para compilar contra otro árbol
+de LuaJIT.
+
 ## Dependencias externas
 
 Este proyecto requiere varias herramientas externas para la compilación y la compilación cruzada:
 
-### Zig
+### MinGW-w64
 
-- **Propósito**: Se utiliza como cadena de herramientas para la compilación cruzada con el fin de compilar LuaJIT para varias plataformas.
-- **Versión**: 0.16.0
-- **Archivo de cadena de herramientas**: `Utils/zig.toolchain.cmake`
-- **Instalación**: Instale Zig desde [ziglang.org](https://ziglang.org/)
+- **Propósito**: Se utiliza como cadena de herramientas para la compilación cruzada con el fin de compilar LuaJIT para Windows.
+- **Archivo de cadena de herramientas**: `Utils/windows.toolchain.cmake`
+- **Instalación**: Instale MinGW-w64 desde [mingw-w64.org](https://www.mingw-w64.org/)
 
 ### Git
 
@@ -32,17 +46,18 @@ Este proyecto requiere varias herramientas externas para la compilación y la co
 
 Utilice un `make` compatible con GNU.
 
-`make -DLUAJIT_DIR=...` o `mingw32-make -DLUAJIT_DIR=...` o
-`gnumake -DLUAJIT_DIR=...`.
+`make` o `mingw32-make` o `gnumake`.
 
-_Nota_: Al utilizar `mingw32-make`, cambie `\\` por `/` en la ruta de archivos en Windows.
+_Nota_: `LUAJIT_DIR` puede sobrescribirse, p. ej.
+`make LUAJIT_DIR=/ruta/a/LuaJIT`. Al utilizar `mingw32-make`, cambie `\\`
+por `/` en las rutas de archivos en Windows.
 
 ### cmake
 
 Utilice cmake para compilar.
 
 ```bash
-cmake -H. -Bbuild -DLUAJIT_DIR=...
+cmake -H. -Bbuild
 make --build build --config Release
 ```
 

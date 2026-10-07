@@ -3,7 +3,7 @@ CMAKE_OPTIONS += -G"MinGW Makefiles"
 endif
 
 ifeq (${LUAJIT_DIR}, )
-LUAJIT_DIR = $(shell pwd)/../LuaJIT
+LUAJIT_DIR = $(shell pwd)/LuaJIT
 endif
 CMAKE_OPTIONS += -DLUAJIT_DIR=${LUAJIT_DIR}
 

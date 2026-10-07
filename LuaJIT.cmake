@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(luajit C ASM)
 
 if(NOT LUAJIT_DIR)
-  message(FATAL_ERROR "Must set LUAJIT_DIR to build luajit with CMake")
+  message(FATAL_ERROR "Must set LUAJIT_DIR to build luajit with CMake, or initialize the bundled LuaJIT submodule: git submodule update --init --recursive")
 endif()
 
 set(LJ_DIR ${LUAJIT_DIR}/src)
@@ -35,10 +35,7 @@ include(CheckCCompilerFlag)
 
 # unwind support, LUAJIT_NO_UNWIND with trible states: ON, OFF, IGNORE
 message(STATUS "CMAKE_C_COMPILER_ID is ${CMAKE_C_COMPILER_ID}")
-if ("${CMAKE_C_COMPILER_ID}" STREQUAL "zig")
-  set(LUAJIT_NO_UNWIND OFF)
-  set(UNWIND_LIBRARY unwind)
-elseif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
   include(${CMAKE_CURRENT_LIST_DIR}/Modules/Findunwind.cmake)
   check_unwind_tables(HAS_UNWIND_TABLES)
   if(HAS_UNWIND_TABLES)
@@ -116,9 +113,7 @@ if(CMAKE_CROSSCOMPILING)
   endif()
 endif()
 
-if (${CMAKE_C_COMPILER_ID} STREQUAL "zig")
-  set(CROSSCOMPILEING_FLAGS cc -target ${CMAKE_C_COMPILER_TARGET})
-elseif (ANDROID)
+if (ANDROID)
   set(CROSSCOMPILEING_FLAGS -target ${CMAKE_C_COMPILER_TARGET})
 elseif (OHOS)
   set(CROSSCOMPILEING_FLAGS -target ${CMAKE_C_COMPILER_TARGET})
@@ -531,6 +526,9 @@ message(STATUS "HOST_CFLAGS: ${HOST_CFLAGS}")
 
 # Build the minilua for host platform
 set(MINILUA_EXE minilua)
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+  set(MINILUA_EXE minilua.exe)
+endif()
 
 list(JOIN HOST_CFLAGS " " MINILUA_CFLAGS)
 if(NOT CMAKE_CROSSCOMPILING)
@@ -555,11 +553,6 @@ else()
 endif()
 
 # Generate luajit.h
-set(GIT_FORMAT %ct)
-if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-  set(GIT_FORMAT %%ct)
-endif()
-
 execute_process(
   COMMAND git --version
   RESULT_VARIABLE GIT_EXISTENCE
@@ -574,21 +567,23 @@ execute_process(
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
+set(LUAJIT_RELVER "")
 if ((GIT_EXISTENCE EQUAL 0) AND (GIT_IN_REPOSITORY EQUAL 0))
   message(STATUS "Using Git: ${GIT_VERSION}")
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt
-    COMMAND git -c log.showSignature=false show -s --format=${GIT_FORMAT}
-      > ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt
+  execute_process(
+    COMMAND git -c log.showSignature=false show -s --format=%ct
     WORKING_DIRECTORY ${LUAJIT_DIR}
+    OUTPUT_VARIABLE LUAJIT_RELVER
+    OUTPUT_STRIP_TRAILING_WHITESPACE
   )
+endif()
+
+if (LUAJIT_RELVER MATCHES "^[0-9]+$")
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt "${LUAJIT_RELVER}\n")
 else()
   string(TIMESTAMP current_epoch "%s")
   message(STATUS "Using current epoch: ${current_epoch}")
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt
-    COMMAND echo "${current_epoch}"
-      > ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt
-    WORKING_DIRECTORY ${LUAJIT_DIR}
-   )
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/luajit_relver.txt "${current_epoch}\n")
 endif()
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/luajit.h
@@ -741,6 +736,13 @@ if (WIN32)
   endif ()
 endif ()
 
+# The optimized x64 string hash (lj_str_hash.c) uses SSE4.2 CRC32
+# instructions and must be compiled with -msse4.2 with GCC/Clang.
+if (("${TARGET_ARCH}" STREQUAL "x64") AND NOT MSVC)
+  set_source_files_properties(${LJ_DIR}/lj_str_hash.c PROPERTIES
+    COMPILE_FLAGS "-msse4.2")
+endif ()
+
 # Build the luajit static library
 add_library(libluajit ${luajit_sources})
 if(MSVC)
@@ -841,12 +843,6 @@ if("${TARGET_ARCH}" STREQUAL "Loongarch64")
   target_compile_options(libluajit PRIVATE "-fwrapv")
 endif()
 
-# Hack for mips64
-if ("${TARGET_ARCH}" STREQUAL "mips64" AND
-  "${CMAKE_C_COMPILER_ID}" STREQUAL "zig")
-  target_compile_definitions(libluajit PRIVATE "__clear_cache=//")
-endif()
-
 set(luajit_headers
   ${LJ_DIR}/lauxlib.h
   ${LJ_DIR}/lua.h
@@ -871,17 +867,6 @@ if (LUAJIT_BUILD_EXE)
     target_link_libraries(luajit m)
   elseif (CMAKE_COMPILER_IS_CLANG OR CMAKE_COMPILER_IS_GNUC)
     target_link_libraries(luajit c m)
-  endif()
-
-  if(APPLE AND ${CMAKE_C_COMPILER_ID} STREQUAL "zig")
-    set_target_properties(luajit PROPERTIES
-      LINK_FLAGS "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-  endif()
-
-  # Hack for mips64
-  if ("${TARGET_ARCH}" STREQUAL "mips64" AND
-    "${CMAKE_C_COMPILER_ID}" STREQUAL "zig")
-    target_compile_definitions(luajit PRIVATE "__clear_cache=//")
   endif()
 
   if (UNWIND_LIBRARY)

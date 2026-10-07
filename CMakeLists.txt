@@ -1,14 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 
 option(LUA_DIR "Path of Lua 5.4 source dir" OFF)
-option(LUAJIT_DIR "Path of LuaJIT 2.1 source dir" OFF)
+option(LUAJIT_DIR "Path of LuaJIT 2.1 source dir (defaults to the bundled LuaJIT submodule)" OFF)
 option(LUAJIT_SETUP_INCLUDE_DIR "Setup include dir if parent is present" ON)
-
 if(CMAKE_COMPILER_IS_GNUCC)
   set(LUA_TARGET_SHARED ON)
 endif()
 if(DEFINED ENV{LUA_TARGET_SHARED})
   set(LUA_TARGET_SHARED $ENV{LUA_TARGET_SHARED})
+endif()
+
+# Use the bundled LuaJIT submodule unless the caller provides another source dir.
+set(LUAJIT_SUBMODULE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/LuaJIT")
+if(NOT LUAJIT_DIR AND EXISTS "${LUAJIT_SUBMODULE_DIR}/src/lj_arch.h")
+  set(LUAJIT_DIR "${LUAJIT_SUBMODULE_DIR}")
 endif()
 
 get_directory_property(hasParent PARENT_DIRECTORY)
@@ -39,5 +44,5 @@ elseif(LUA_DIR)
     set(LUA_FFI_LIBRARIES ${LUA_FFI_LIBRARIES} PARENT_SCOPE)
   endif()
 else()
-  message(FATAL_ERROR "Must set LUAJIT_DIR or LUA_DIR to build with CMake")
+  message(FATAL_ERROR "Must set LUAJIT_DIR or LUA_DIR to build with CMake, or initialize the bundled LuaJIT submodule: git submodule update --init --recursive")
 endif()
